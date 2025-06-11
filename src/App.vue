@@ -519,6 +519,73 @@
         </div>
       </div>
     </footer>
+
+    <!-- Barra de progresso de desafios -->
+    <div v-if="currentPage === 'challenges'" class="container mt-4">
+      <div class="progress-bar">
+        <div class="progress-bar-inner" :style="{ width: progressPercent + '%' }">
+          {{ completedChallenges.length }} de {{ challenges.length }} desafios concluídos ({{ progressPercent }}%)
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast de feedback -->
+    <div v-if="showToast" class="toast-feedback">
+      <i class="bi bi-check-circle-fill"></i> Evidência enviada com sucesso!
+    </div>
+
+    <!-- Modal de Detalhes do Desafio -->
+    <div v-if="showChallengeModal">
+      <div class="modal-backdrop" @click="closeChallengeModal"></div>
+      <div class="modal fade show d-block" tabindex="-1" style="z-index: 1100;">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header bg-green-custom text-white">
+              <h5 class="modal-title">Detalhes do Desafio</h5>
+              <button type="button" class="btn-close btn-close-white" @click="closeChallengeModal"></button>
+            </div>
+            <div class="modal-body" v-if="selectedChallenge">
+              <div class="d-flex align-items-center mb-2">
+                <h3 class="fw-bold text-green-custom mb-0">{{ selectedChallenge.title }}</h3>
+                <span v-if="isFavorite(selectedChallenge.id)" class="favorite-star ms-2"><i class="bi bi-star-fill"></i></span>
+                <span v-if="isCompleted(selectedChallenge.id)" class="completed-badge ms-2">Concluído</span>
+                <span class="favorite-star ms-2" @click="toggleFavorite(selectedChallenge.id)">
+                  <i :class="isFavorite(selectedChallenge.id) ? 'bi bi-star-fill' : 'bi bi-star'" title="Favoritar"></i>
+                </span>
+              </div>
+              <span class="badge bg-secondary mb-2">{{ selectedChallenge.week }}</span>
+              <span class="badge bg-green-custom ms-2">{{ selectedChallenge.points }} pontos</span>
+              <p class="mt-3">{{ selectedChallenge.description }}</p>
+              <ul class="list-unstyled mb-3">
+                <li><i class="bi bi-calendar me-2"></i><strong>Prazo:</strong> {{ selectedChallenge.deadline }}</li>
+                <li><i class="bi bi-clock me-2"></i><strong>Tempo estimado:</strong> {{ selectedChallenge.time }}</li>
+                <li><i class="bi bi-tag me-2"></i><strong>Categoria:</strong> {{ selectedChallenge.category }}</li>
+              </ul>
+              <div class="mb-3">
+                <label class="form-label">Envie sua evidência (foto ou vídeo):</label>
+                <input type="file" class="form-control mb-2" disabled>
+                <small class="text-muted">(Simulação: upload desabilitado)</small>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Comentário ou observação:</label>
+                <textarea class="form-control" rows="2" placeholder="Digite aqui..." v-model="challengeComment"></textarea>
+              </div>
+              <div class="mb-3">
+                <strong>Dicas para este desafio:</strong>
+                <ul class="mb-0">
+                  <li v-for="(tip, idx) in challengeTips[selectedChallenge.id] || defaultTips" :key="idx">{{ tip }}</li>
+                </ul>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-green-custom" @click="submitEvidence">Enviar Evidência</button>
+              <button class="btn btn-outline-secondary" @click="closeChallengeModal">Fechar</button>
+              <button class="btn btn-outline-success ms-auto" @click="nextChallenge" v-if="hasNextChallenge">Próximo Desafio</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -534,6 +601,19 @@ export default {
       sortBy: 'date',
       userPoints: 120,
       monthsToShow: 2,
+      showChallengeModal: false,
+      selectedChallenge: null,
+      showToast: false,
+      challengeComment: '',
+      favorites: [],
+      completed: [],
+      challengeTips: {
+        1: ["Use baldes ou potes reciclados para a composteira.", "Evite colocar carnes ou laticínios."],
+        2: ["Garrafas PET de 2L funcionam bem.", "Fixe bem a estrutura na parede."],
+        3: ["Use um tambor limpo para armazenar a água.", "Cubra para evitar mosquitos."],
+        // ...adicione dicas para outros desafios...
+      },
+      defaultTips: ["Leia atentamente o passo a passo.", "Peça ajuda de um adulto se necessário.", "Registre todo o processo com fotos ou vídeos."],
       challenges: [
         // Janeiro
         {
@@ -752,6 +832,19 @@ export default {
       }
       
       return filtered
+    },
+    progressPercent() {
+      const total = this.challenges.length;
+      const completed = this.completed.length;
+      return total > 0 ? Math.round((completed / total) * 100) : 0;
+    },
+    completedChallenges() {
+      return this.challenges.filter(challenge => this.completed.includes(challenge.id));
+    },
+    hasNextChallenge() {
+      if (!this.selectedChallenge) return false;
+      const currentIndex = this.challenges.findIndex(challenge => challenge.id === this.selectedChallenge.id);
+      return currentIndex !== -1 && currentIndex < this.challenges.length - 1;
     }
   },
   methods: {
@@ -762,8 +855,49 @@ export default {
       this.monthsToShow = Math.min(this.monthsToShow + 2, this.availableMonths.length)
     },
     viewChallenge(challenge) {
-      alert(`Visualizando detalhes do desafio: ${challenge.title}`)
-      // Aqui você implementaria a navegação para a página de detalhes do desafio
+      this.selectedChallenge = challenge;
+      this.showChallengeModal = true;
+    },
+    closeChallengeModal() {
+      this.showChallengeModal = false;
+      this.selectedChallenge = null;
+    },
+    isCompleted(challengeId) {
+      return this.completed.includes(challengeId);
+    },
+    isFavorite(challengeId) {
+      return this.favorites.includes(challengeId);
+    },
+    toggleFavorite(challengeId) {
+      if (this.isFavorite(challengeId)) {
+        this.favorites = this.favorites.filter(id => id !== challengeId);
+      } else {
+        this.favorites.push(challengeId);
+      }
+    },
+    submitEvidence() {
+      if (this.selectedChallenge && !this.isCompleted(this.selectedChallenge.id)) {
+        this.completed.push(this.selectedChallenge.id);
+      }
+      this.showToast = true;
+      setTimeout(() => {
+        this.showToast = false;
+        this.closeChallengeModal();
+      }, 2000);
+    },
+    nextChallenge() {
+      if (!this.selectedChallenge) return;
+      const currentIndex = this.challenges.findIndex(challenge => challenge.id === this.selectedChallenge.id);
+      if (currentIndex !== -1 && currentIndex < this.challenges.length - 1) {
+        this.selectedChallenge = this.challenges[currentIndex + 1];
+        this.challengeComment = '';
+      }
+    },
+    mounted() {
+      // Corrige problemas de navegação dos botões
+      document.querySelectorAll('a.nav-link, a.text-decoration-none').forEach(link => {
+        link.addEventListener('click', e => e.preventDefault());
+      });
     }
   }
 }
@@ -883,6 +1017,83 @@ export default {
 .nav-tabs .nav-link:hover {
   border-color: #16a34a;
   color: #15803d;
+}
+
+.toast-feedback {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  z-index: 2000;
+  min-width: 250px;
+  background: #16a34a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeInOut 2s;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-20px); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1050;
+}
+
+.completed-badge {
+  background: #15803d;
+  color: #fff;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  padding: 0.2rem 0.7rem;
+  margin-left: 0.5rem;
+}
+
+.card.completed {
+  opacity: 0.7;
+  border: 2px solid #15803d;
+}
+
+.card.favorite {
+  border: 2px solid #fbbf24;
+  box-shadow: 0 0 0 2px #fbbf24;
+}
+
+.favorite-star {
+  color: #fbbf24;
+  font-size: 1.3rem;
+  cursor: pointer;
+  margin-left: 0.5rem;
+}
+
+.progress-bar {
+  height: 1.2rem;
+  background: #f0fdf4;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progress-bar-inner {
+  height: 100%;
+  background: #16a34a;
+  color: #fff;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.2rem;
+  border-radius: 8px;
+  transition: width 0.5s;
 }
 
 @media (max-width: 768px) {
