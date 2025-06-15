@@ -114,6 +114,22 @@
       </button>
     </div>
 
+    <!-- Fixed Challenges Section -->
+    <section>
+      <h2>Desafio Fixos</h2>
+      <div class="challenges-list">
+        <div
+          class="challenge-card"
+          v-for="challenge in fixedChallenges"
+          :key="challenge.id"
+        >
+          <h3>{{ challenge.title }}</h3>
+          <p>{{ challenge.description }}</p>
+          <p><strong>Pontos:</strong> {{ challenge.points }}</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Scoring System -->
     <div class="card mt-5">
       <div class="card-body">
@@ -266,6 +282,15 @@ export default {
           points: 70
         }
       ],
+      fixedChallenges: [
+        {
+          id: 101,
+          title: "Convide Pessoas para a Missão",
+          description: "Convide amigos para participarem da Missão Sustentável. Você ganha 10 pontos por convite aceito e pontos extras conforme eles concluem desafios.",
+          points: 10
+        }
+        // Você pode adicionar outros desafios fixos aqui
+      ],
       monthsToShow: 2
     }
   },
@@ -283,7 +308,13 @@ export default {
       } else {
         return this.availableMonths.slice(0, this.monthsToShow);
       }
-    }
+    },
+    months() {
+      // Retorna lista única de meses dos desafios
+      return [
+        ...new Set(this.challenges.map((challenge) => challenge.month)),
+      ];
+    },
   },
   methods: {
     getFilteredChallenges(month) {
@@ -314,7 +345,10 @@ export default {
     viewChallenge(challenge) {
       console.log("Ver detalhes do desafio:", challenge);
       alert(`Detalhes do Desafio: ${challenge.title}\nDescrição: ${challenge.description}\nPontos: ${challenge.points}`);
-    }
+    },
+    challengesByMonth(month) {
+      return this.challenges.filter((challenge) => challenge.month === month);
+    },
   }
 }
 </script>
@@ -341,6 +375,19 @@ export default {
 .btn-green-custom:hover {
   background-color: #218838;
   border-color: #1e7e34;
+}
+
+.challenges-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.challenge-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 16px;
+  width: 250px;
 }
 </style>
 
