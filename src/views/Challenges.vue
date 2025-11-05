@@ -77,23 +77,39 @@
 
     <!-- Current Challenges -->
     <div v-if="activeTab === 'current'">
-      <div v-for="month in displayedMonths" :key="month" class="mb-5">
-        <h2 class="fw-bold mb-4 text-green-custom">{{ month }}</h2>
-        <div class="row g-4">
-          <div 
-            v-for="challenge in getFilteredChallenges(month)" 
-            :key="challenge.id" 
-            class="col-lg-4 col-md-6"
-          >
-            <ChallengeCard :challenge="challenge" @view-challenge="viewChallenge" />
+      <!-- Loading State -->
+      <div v-if="loading" class="text-center py-5">
+        <div class="spinner-border text-green-custom" role="status">
+          <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-2">Carregando desafios...</p>
+      </div>
+
+      <!-- Error State -->
+      <div v-else-if="error" class="alert alert-danger" role="alert">
+        {{ error }}
+      </div>
+
+      <!-- Content -->
+      <div v-else>
+        <div v-for="month in displayedMonths" :key="month" class="mb-5">
+          <h2 class="fw-bold mb-4 text-green-custom">{{ month }}</h2>
+          <div class="row g-4">
+            <div 
+              v-for="challenge in getFilteredChallenges(month)" 
+              :key="challenge.id" 
+              class="col-lg-4 col-md-6"
+            >
+              <ChallengeCard :challenge="challenge" @view-challenge="viewChallenge" />
+            </div>
           </div>
         </div>
-      </div>
-      
-      <div class="text-center mt-4" v-if="!selectedMonth && displayedMonths.length < availableMonths.length">
-        <button class="btn btn-outline-success" @click="loadMoreMonths">
-          Carregar Mais Meses
-        </button>
+        
+        <div class="text-center mt-4" v-if="!selectedMonth && displayedMonths.length < availableMonths.length">
+          <button class="btn btn-outline-success" @click="loadMoreMonths">
+            Carregar Mais Meses
+          </button>
+        </div>
       </div>
     </div>
 
@@ -167,6 +183,12 @@
 
 <script>
 import ChallengeCard from '@/components/ChallengeCard.vue';
+import { 
+  listarDesafios,
+  listarDesafiosFixos,
+  listarDesafiosAtuais,
+  listarDesafiosConcluidos
+} from '@/services/desafios';
 
 export default {
   name: "ChallengesPage",
@@ -180,6 +202,8 @@ export default {
       sortBy: "date",
       searchTerm: "",
       activeTab: "current",
+      loading: false,
+      error: null,
       challenges: [
         {
           id: 1,
@@ -294,6 +318,17 @@ export default {
       monthsToShow: 2
     }
   },
+  async created() {
+    await this.loadChallenges();
+    await this.loadFixedChallenges();
+  },
+
+  watch: {
+    async activeTab() {
+      await this.loadChallenges();
+    }
+  },
+
   computed: {
     availableMonths() {
       const months = [...new Set(this.challenges.map(c => c.month))];
@@ -317,6 +352,33 @@ export default {
     },
   },
   methods: {
+    async loadChallenges() {
+      this.loading = true;
+      this.error = null;
+      try {
+        if (this.activeTab === 'current') {
+          this.challenges = await listarDesafiosAtuais();
+        } else if (this.activeTab === 'completed') {
+          this.challenges = await listarDesafiosConcluidos();
+        } else {
+          this.challenges = await listarDesafios();
+        }
+      } catch (error) {
+        this.error = error.message;
+        console.error('Erro ao carregar desafios:', error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async loadFixedChallenges() {
+      try {
+        this.fixedChallenges = await listarDesafiosFixos();
+      } catch (error) {
+        console.error('Erro ao carregar desafios fixos:', error);
+      }
+    },
+
     getFilteredChallenges(month) {
       let filtered = this.challenges.filter(challenge => challenge.month === month);
 
@@ -339,13 +401,16 @@ export default {
 
       return filtered;
     },
+
     loadMoreMonths() {
       this.monthsToShow = Math.min(this.availableMonths.length, this.monthsToShow + 2);
     },
+
     viewChallenge(challenge) {
       console.log("Ver detalhes do desafio:", challenge);
       alert(`Detalhes do Desafio: ${challenge.title}\nDescrição: ${challenge.description}\nPontos: ${challenge.points}`);
     },
+
     challengesByMonth(month) {
       return this.challenges.filter((challenge) => challenge.month === month);
     },
